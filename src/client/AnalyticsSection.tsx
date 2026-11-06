@@ -481,6 +481,21 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
       </div>
 
       <div className='da-panel'>
+        <h3>Diagnostics</h3>
+        <div className='sub'>Raw first session summary and projection values</div>
+        <details>
+          <summary>Show diagnostics</summary>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, maxHeight: 240, overflow: 'auto' }}>
+            {JSON.stringify({
+              sampleId: (listState.ids as readonly string[])[0],
+              summary: listState.byId?.[(listState.ids as readonly string[])[0]],
+              projection: listState.projectionsBySession?.[(listState.ids as readonly string[])[0]],
+            }, null, 2)}
+          </pre>
+        </details>
+      </div>
+
+      <div className='da-panel'>
         <h3>{t('insights.title')}</h3>
         <div className='da-insights'>
           {insights.map((line, idx) => (
