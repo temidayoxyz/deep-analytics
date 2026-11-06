@@ -34,11 +34,23 @@ export function apply(ctx: any): void {
           if (selection?.model) model = String(selection.model)
           else if (selection?.name) model = String(selection.name)
         } catch { /* keep default */ }
+        const skills: string[] = []
+        try {
+          const catalog = scope.sessionSkillCatalog
+          if (catalog?.list) {
+            const result = await catalog.list({}, new AbortController().signal)
+            const list = (result as any)?.items ?? (result as any)?.skills ?? (result as any)?.entries ?? []
+            for (const item of list) {
+              const label = item?.name ?? item?.title ?? item?.id
+              if (label) skills.push(String(label))
+            }
+          }
+        } catch { /* keep empty */ }
         const info: InfoResponse = {
           name: os.userInfo().username || 'User',
           pluginCount,
           model,
-          skills: [],
+          skills: skills.slice(0, 8),
         }
         sendJson(res, 200, info)
         return
