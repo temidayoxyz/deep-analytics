@@ -341,7 +341,6 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
       <div className='da-grid'>
         <div className='da-card'><div className='label'><i className='bi bi-chat-dots' /> {t('card.turns')}</div><div className='value'>{totalTurns.toLocaleString()}</div><div className='sub'>{conversations.length} conversations</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-list-check' /> {t('card.steps')}</div><div className='value'>{totalSteps.toLocaleString()}</div><div className='sub'>across all turns</div></div>
-        <div className='da-card'><div className='label'><i className='bi bi-lightning' /> {t('card.toks')}</div><div className='value'>{avgTokPerSec.toFixed(1)}</div><div className='sub'>tokens per second</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-infinity' /> {t('card.tokens')}</div><div className='value'>{formatTokens(totalTokens)}</div><div className='sub'>{totalTokens.toLocaleString()} tokens</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-database' /> {t('card.cache')}</div><div className='value'>{cacheHit.toFixed(1)}%</div><div className='sub'>cache read / input</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-graph-up-arrow' /> {t('card.peak')}</div><div className='value'>{formatTokens(peakTokens)}</div><div className='sub'>{peakTokens.toLocaleString()} tokens</div></div>
