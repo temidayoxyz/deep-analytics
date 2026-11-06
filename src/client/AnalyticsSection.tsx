@@ -238,14 +238,14 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
   if (longestTask <= 0) longestTask = totalSpanMs
   const totalDurationMs = conversations.reduce((sum, c) => sum + c.durationMs, 0) > 0 ? conversations.reduce((sum, c) => sum + c.durationMs, 0) : totalSpanMs
 
+  const totalDecodeTokens = conversations.reduce((sum, c) => sum + (Number((listState.byId?.[c.id]?.projectionValues ?? listState.projectionsBySession?.[c.id]?.values)?.sessionStats?.decodeTokens ?? 0)), 0)
+  const totalDecodeMs = conversations.reduce((sum, c) => sum + (Number((listState.byId?.[c.id]?.projectionValues ?? listState.projectionsBySession?.[c.id]?.values)?.sessionStats?.decodeMs ?? 0)), 0)
+  const avgTokPerSec = totalDecodeMs > 0 ? totalDecodeTokens / (totalDecodeMs / 1000) : 0
   const totalCacheRead = conversations.reduce((s, c) => s + c.buckets.cacheReadTokens, 0)
   const totalUncached = conversations.reduce((s, c) => s + c.buckets.uncachedInputTokens, 0)
   const cacheHit = totalCacheRead + totalUncached > 0 ? (totalCacheRead / (totalCacheRead + totalUncached)) * 100 : 0
 
   const durations = conversations.filter((c) => c.durationMs > 0)
-  const avgTokPerSec = totalTokens > 0
-    ? totalTokens / Math.max(1, totalDurationMs / 1000)
-    : 0
 
   const days = conversations.map((c) => dayKey(c.time))
   const ls = longestStreak(days)
@@ -284,18 +284,19 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
   const weekCounts = Array(53).fill(0);
   cells.forEach((cell, idx) => { weekCounts[Math.floor(idx / 7)] += cell.count; });
   const maxWeekCount = Math.max(1, ...weekCounts);
-  const weeks = weekCounts.map((count) => ({ count, level: count === 0 ? 0 : Math.min(4, Math.ceil((count / maxWeekCount) * 4)) }));
 
   const monthCounts = Array(12).fill(0);
   conversations.forEach((c) => { monthCounts[new Date(c.time).getMonth()] += 1; });
   const maxMonthCount = Math.max(1, ...monthCounts);
-  const months = monthCounts.map((count, idx) => ({ label: new Date(2024, idx, 1).toLocaleString('en', { month: 'short' }), count, level: count === 0 ? 0 : Math.min(4, Math.ceil((count / maxMonthCount) * 4)) }));
 
   let cumulativeRunning = 0;
-  const cumulativeWeeks = weeks.map((w) => { cumulativeRunning += w.count; return { count: cumulativeRunning, level: 0 }; });
-  const cumulativeTotal = cumulativeWeeks.length ? cumulativeWeeks[cumulativeWeeks.length - 1].count : 1;
-  cumulativeWeeks.forEach((w) => { w.level = w.count === 0 ? 0 : Math.min(4, Math.ceil((w.count / cumulativeTotal) * 4)); });
+  const cumulativeDayCounts = cells.map((cell) => {
+    cumulativeRunning += cell.count;
+    return cumulativeRunning;
+  });
+  const cumulativeTotal = cumulativeDayCounts.length ? cumulativeDayCounts[cumulativeDayCounts.length - 1] : 1;
 
+  const months = monthCounts.map((count, idx) => ({ label: new Date(2024, idx, 1).toLocaleString('en', { month: 'short' }), count, level: count === 0 ? 0 : Math.min(4, Math.ceil((count / maxMonthCount) * 4)) }));
   const monthLabels = Array(53).fill('');
   let previousMonth = '';
   for (let w = 0; w < 53; w++) {
@@ -304,13 +305,22 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
     if (label !== previousMonth) { monthLabels[w] = label; previousMonth = label; }
   }
 
-  const activeCells =
-    activityFilter === 'daily' ? cells :
-    activityFilter === 'weekly' ? weeks :
-    activityFilter === 'monthly' ? months :
-    cumulativeWeeks;
-  const activeColumns = activityFilter === 'monthly' ? 12 : 53;
-  const activeAspect = activityFilter === 'daily' ? '1 / 1' : (activityFilter === 'monthly' ? '1 / 1' : '1 / 4');
+  const activityCells = cells.map((cell, idx) => {
+    const weekCount = weekCounts[Math.floor(idx / 7)];
+    const monthCount = monthCounts[new Date(cell.date + 'T00:00:00').getMonth()];
+    const cumulativeCount = cumulativeDayCounts[idx];
+    let count = cell.count;
+    let maxForLevel = Math.max(1, ...cells.map((x) => x.count));
+    if (activityFilter === 'weekly') { count = weekCount; maxForLevel = maxWeekCount; }
+    if (activityFilter === 'monthly') { count = monthCount; maxForLevel = maxMonthCount; }
+    if (activityFilter === 'cumulative') { count = cumulativeCount; maxForLevel = cumulativeTotal; }
+    const level = count === 0 ? 0 : Math.min(4, Math.ceil((count / maxForLevel) * 4));
+    return { ...cell, count, level };
+  });
+
+  const activeCells = activityCells;
+  const activeColumns = 53;
+  const activeAspect = '1 / 1';
 
   const skills: string[] = info?.skills ?? []
   const pluginCount = info?.pluginCount ?? 0
@@ -340,6 +350,7 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
 
       <div className='da-grid'>
         <div className='da-card'><div className='label'><i className='bi bi-chat-dots' /> {t('card.turns')}</div><div className='value'>{totalTurns.toLocaleString()}</div><div className='sub'>{conversations.length} conversations</div></div>
+        <div className='da-card'><div className='label'><i className='bi bi-lightning' /> {t('card.toks')}</div><div className='value'>{avgTokPerSec.toFixed(1)}</div><div className='sub'>decode tokens per second</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-list-check' /> {t('card.steps')}</div><div className='value'>{totalSteps.toLocaleString()}</div><div className='sub'>across all turns</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-infinity' /> {t('card.tokens')}</div><div className='value'>{formatTokens(totalTokens)}</div><div className='sub'>{totalTokens.toLocaleString()} tokens</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-database' /> {t('card.cache')}</div><div className='value'>{cacheHit.toFixed(1)}%</div><div className='sub'>cache read / input</div></div>
@@ -347,7 +358,6 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
         <div className='da-card'><div className='label'><i className='bi bi-clock-history' /> {t('card.longestTask')}</div><div className='value'>{formatMs(longestTask)}</div><div className='sub'>single task</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-calendar-check' /> {t('card.longestStreak')}</div><div className='value'>{ls}</div><div className='sub'>days</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-fire' /> {t('card.currentStreak')}</div><div className='value'>{cs}</div><div className='sub'>days</div></div>
-        <div className='da-card'><div className='label'><i className='bi bi-plugin' /> {t('card.plugins')}</div><div className='value'>{pluginCount}</div><div className='sub'>installed rows</div></div>
       </div>
 
       <div className='da-panel'>
