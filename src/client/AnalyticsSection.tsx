@@ -208,7 +208,8 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
     const tokens = sumTokens(buckets)
     const created = sessionCreated(summary)
     const time = sessionTime(summary)
-    const duration = Math.max(0, time - created)
+    const rawDuration = Number(projection?.values?.durationMs ?? projection?.values?.elapsedMs ?? projection?.values?.taskDurationMs ?? summary?.durationMs ?? summary?.elapsedMs ?? summary?.taskDurationMs ?? 0)
+    const duration = rawDuration > 0 ? rawDuration : Math.max(0, time - created)
     const turnsRaw = projection?.values?.turns ?? projection?.values?.turnCount ?? summary?.turns ?? summary?.messageCount ?? 1
     const stepsRaw = projection?.values?.steps ?? summary?.steps ?? turnsRaw
     return {
@@ -229,15 +230,21 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
   const totalSteps = conversations.reduce((sum, c) => sum + c.steps, 0)
   const totalTokens = conversations.reduce((sum, c) => sum + c.tokens, 0)
   const peakTokens = conversations.reduce((max, c) => Math.max(max, c.tokens), 0)
-  const longestTask = conversations.reduce((max, c) => Math.max(max, c.durationMs), 0)
+  let longestTask = conversations.reduce((max, c) => Math.max(max, c.durationMs), 0)
+  const timestamps = conversations.map((c) => c.time).filter((value) => Number.isFinite(value))
+  const firstTime = timestamps.length ? Math.min(...timestamps) : 0
+  const lastTime = timestamps.length ? Math.max(...timestamps) : 0
+  const totalSpanMs = Math.max(1, lastTime - firstTime)
+  if (longestTask <= 0) longestTask = totalSpanMs
+  const totalDurationMs = conversations.reduce((sum, c) => sum + c.durationMs, 0) > 0 ? conversations.reduce((sum, c) => sum + c.durationMs, 0) : totalSpanMs
 
   const totalCacheRead = conversations.reduce((s, c) => s + c.buckets.cacheReadTokens, 0)
   const totalUncached = conversations.reduce((s, c) => s + c.buckets.uncachedInputTokens, 0)
   const cacheHit = totalCacheRead + totalUncached > 0 ? (totalCacheRead / (totalCacheRead + totalUncached)) * 100 : 0
 
   const durations = conversations.filter((c) => c.durationMs > 0)
-  const avgTokPerSec = durations.length > 0
-    ? totalTokens / (durations.reduce((s, c) => s + c.durationMs, 0) / 1000)
+  const avgTokPerSec = totalTokens > 0
+    ? totalTokens / Math.max(1, totalDurationMs / 1000)
     : 0
 
   const days = conversations.map((c) => dayKey(c.time))
@@ -323,7 +330,7 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
   }
 
   return (
-    <div className='da-section' style={{ height: '100%', minHeight: '100vh', overflowY: 'auto', overflowX: 'hidden' }}>
+    <div className='da-section' style={{ width: '100%', maxHeight: '100vh', overflowY: 'auto', overflowX: 'hidden', paddingBottom: 48 }}>
       <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css' />
       <div className='da-header'>
         <div className='da-greeting'>{t('greeting', { name })}</div>
@@ -361,7 +368,7 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
                     padding: '4px 10px',
                     fontSize: 12,
                     borderRadius: 6,
-                    border: '1px solid var(--border, rgba(255,255,255,.15))',
+                    border: '1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.15))',
                     background: activityFilter === filter ? 'rgba(110,168,254,.25)' : 'transparent',
                     color: 'inherit',
                     cursor: 'pointer',
