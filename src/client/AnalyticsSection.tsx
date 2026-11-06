@@ -90,13 +90,27 @@ function sessionTitle(summary: any, id: string): string {
   return String(summary?.title ?? summary?.name ?? id.slice(0, 8))
 }
 
+function extractModelName(value: any): string {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'object') {
+    return String(value.model ?? value.name ?? value.id ?? value.modelId ?? value.defaultModel ?? '')
+  }
+  return String(value)
+}
+
 function sessionModel(summary: any, projection: any, fallback: string): string {
+  const lastUsed =
+    projection?.values?.modelSelection?.lastUsed ??
+    summary?.projectionValues?.modelSelection?.lastUsed ??
+    summary?.modelSelection?.lastUsed
   const value =
-    projection?.values?.model ??
-    projection?.values?.defaultModel ??
-    summary?.model ??
-    summary?.defaultModel ??
-    summary?.provider ??
+    extractModelName(projection?.values?.model) ||
+    extractModelName(projection?.values?.defaultModel) ||
+    extractModelName(lastUsed) ||
+    extractModelName(summary?.model) ||
+    extractModelName(summary?.defaultModel) ||
+    extractModelName(summary?.provider) ||
     ''
   return value ? String(value) : fallback
 }
@@ -267,6 +281,8 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
   // heatmap (last 52 weeks)
   const countsByDay: Record<string, number> = {}
   conversations.forEach((c) => {
+    const hasActivity = c.turns > 0 || c.tokens > 0
+    if (!hasActivity) return
     const k = dayKey(c.time)
     countsByDay[k] = (countsByDay[k] ?? 0) + 1
   })
