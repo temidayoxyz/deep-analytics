@@ -76,13 +76,13 @@ function sumTokens(b: TokenBuckets): number {
 
 function sessionTime(summary: any): number {
   const raw = summary?.updatedAt ?? summary?.lastUpdatedAt ?? summary?.time
-  const parsed = raw ? Date.parse(raw) : NaN
+  const parsed = typeof raw === 'number' ? raw : (raw ? Date.parse(raw) : NaN)
   return Number.isFinite(parsed) ? parsed : Date.now()
 }
 
 function sessionCreated(summary: any): number {
-  const raw = summary?.createdAt ?? summary?.created ?? summary?.time
-  const parsed = raw ? Date.parse(raw) : NaN
+  const raw = summary?.createdAt ?? summary?.created ?? summary?.updatedAt ?? summary?.time
+  const parsed = typeof raw === 'number' ? raw : (raw ? Date.parse(raw) : NaN)
   return Number.isFinite(parsed) ? parsed : sessionTime(summary)
 }
 
@@ -208,10 +208,10 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
     const tokens = sumTokens(buckets)
     const created = sessionCreated(summary)
     const time = sessionTime(summary)
-    const rawDuration = Number(projection?.values?.durationMs ?? projection?.values?.elapsedMs ?? projection?.values?.taskDurationMs ?? summary?.durationMs ?? summary?.elapsedMs ?? summary?.taskDurationMs ?? 0)
-    const duration = rawDuration > 0 ? rawDuration : Math.max(0, time - created)
-    const turnsRaw = projection?.values?.turns ?? projection?.values?.turnCount ?? summary?.turns ?? summary?.messageCount ?? 1
-    const stepsRaw = projection?.values?.steps ?? summary?.steps ?? turnsRaw
+    const sessionStats = projection?.values?.sessionStats ?? summary?.projectionValues?.sessionStats ?? summary?.sessionStats ?? {}
+    const duration = (Number(sessionStats?.llmMs ?? 0) + Number(sessionStats?.toolMs ?? 0)) || Math.max(0, time - created)
+    const turnsRaw = sessionStats?.turns ?? 0
+    const stepsRaw = sessionStats?.steps ?? 0
     return {
       id,
       title: sessionTitle(summary, id),
@@ -219,8 +219,8 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
       created,
       buckets,
       tokens,
-      turns: Math.max(1, Number(turnsRaw) || 1),
-      steps: Math.max(1, Number(stepsRaw) || 1),
+      turns: Number(turnsRaw) || 0,
+      steps: Number(stepsRaw) || 0,
       model: sessionModel(summary, projection, info?.model ?? 'Unknown'),
       durationMs: duration,
     }
@@ -478,21 +478,6 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
             })}
           </div>
         )}
-      </div>
-
-      <div className='da-panel'>
-        <h3>Diagnostics</h3>
-        <div className='sub'>Raw first session summary and projection values</div>
-        <details>
-          <summary>Show diagnostics</summary>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 11, maxHeight: 240, overflow: 'auto' }}>
-            {JSON.stringify({
-              sampleId: (listState.ids as readonly string[])[0],
-              summary: listState.byId?.[(listState.ids as readonly string[])[0]],
-              projection: listState.projectionsBySession?.[(listState.ids as readonly string[])[0]],
-            }, null, 2)}
-          </pre>
-        </details>
       </div>
 
       <div className='da-panel'>
