@@ -28,6 +28,7 @@ interface InfoResponse {
   pluginCount: number
   model: string
   skills: string[]
+  skillCount: number
 }
 
 interface TokenBuckets {
@@ -366,6 +367,7 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
 
       <div className='da-grid'>
         <div className='da-card'><div className='label'><i className='bi bi-chat-dots' /> {t('card.turns')}</div><div className='value'>{totalTurns.toLocaleString()}</div><div className='sub'>{conversations.length} conversations</div></div>
+        <div className='da-card'><div className='label'><i className='bi bi-stars' /> {t('card.skills')}</div><div className='value'>{info?.skillCount ?? 0}</div><div className='sub'>configured skills</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-lightning' /> {t('card.toks')}</div><div className='value'>{avgTokPerSec.toFixed(1)}</div><div className='sub'>decode tokens per second</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-list-check' /> {t('card.steps')}</div><div className='value'>{totalSteps.toLocaleString()}</div><div className='sub'>across all turns</div></div>
         <div className='da-card'><div className='label'><i className='bi bi-infinity' /> {t('card.tokens')}</div><div className='value'>{formatTokens(totalTokens)}</div><div className='sub'>{totalTokens.toLocaleString()} tokens</div></div>

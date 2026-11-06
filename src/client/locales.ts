@@ -15,6 +15,7 @@ export const en = {
   'card.longestStreak': 'Longest streak days',
   'card.currentStreak': 'Current streak days',
   'card.plugins': 'Plugins installed',
+  'card.skills': 'Skills configured',
   'heatmap.title': 'Task activity',
   'heatmap.sub': 'Contributions over the last year',
   'models.title': 'Models used',
