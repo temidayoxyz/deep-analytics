@@ -1,14 +1,14 @@
 export const SECTION_STYLES = `
-.da-section { padding: 28px 32px; max-width: 1380px; margin: 0 auto; color: var(--fg, #e6e6e6); }
+.da-section { padding: 28px 32px; max-width: 1380px; margin: 0 auto; color: var(--fg, #e6e6e6); min-height: 100%; }
 .da-header { margin-bottom: 24px; }
 .da-header h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -0.02em; }
 .da-header p { margin: 0; opacity: .72; font-size: 14px; }
 .da-greeting { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; opacity: .6; margin-bottom: 4px; }
 .da-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px; }
-.da-card { padding: 16px 18px; border: 1px solid var(--border, rgba(255,255,255,.1)); border-radius: 12px; background: var(--surface, rgba(255,255,255,.04)); transition: transform .15s ease, box-shadow .15s ease; }
+.da-card { padding: 16px 18px; border: 1px solid var(--border, rgba(255,255,255,.1)); border-radius: 12px; background: var(--surface, rgba(255,255,255,.04)); transition: transform .15s ease, box-shadow .15s ease; overflow: hidden; min-height: 96px; }
 .da-card:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
 .da-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .65; display:flex; align-items:center; gap:6px; }
-.da-card .value { font-size: 28px; font-weight: 700; margin-top: 10px; letter-spacing: -0.02em; }
+.da-card .value { font-size: 22px; font-weight: 700; margin-top: 10px; letter-spacing: -0.02em; line-height: 1.1; overflow-wrap: anywhere; word-break: break-word; }
 .da-card .sub { margin-top: 6px; font-size: 12px; opacity: .65; }
 .da-panel { margin-bottom: 24px; padding: 20px; border: 1px solid var(--border, rgba(255,255,255,.1)); border-radius: 14px; background: var(--surface, rgba(255,255,255,.03)); }
 .da-panel h3 { margin: 0 0 4px; font-size: 16px; }

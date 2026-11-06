@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   ClientContextLike,
   LocaleSeat,
@@ -172,6 +172,7 @@ function currentStreak(days: string[]): number {
 export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
   const [listState, setListState] = useState<SessionListState>(() => sessions.list.getSnapshot() as any)
   const [info, setInfo] = useState<InfoResponse | null>(null)
+  const [activityFilter, setActivityFilter] = useState<'daily' | 'weekly' | 'monthly' | 'cumulative'>('daily')
 
   useEffect(() => {
     const refresh = () => setListState(sessions.list.getSnapshot() as any)
@@ -189,7 +190,7 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
         sessions.refreshProjections(id).catch(() => undefined)
       }
     })
-  }, [listState, sessions])
+  }, [listState.ids, sessions])
 
   useEffect(() => {
     let active = true
@@ -200,7 +201,7 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
     return () => { active = false }
   }, [])
 
-  const conversations: ConversationStat[] = (listState.ids as readonly string[]).map((id) => {
+  const conversations: ConversationStat[] = useMemo(() => (listState.ids as readonly string[]).map((id) => {
     const summary = listState.byId?.[id]
     const projection = listState.projectionsBySession?.[id]
     const buckets = bucketsOf(projection)
@@ -222,7 +223,7 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
       model: sessionModel(summary, projection, info?.model ?? 'Unknown'),
       durationMs: duration,
     }
-  })
+  }), [listState, info?.model])
 
   const totalTurns = conversations.reduce((sum, c) => sum + c.turns, 0)
   const totalSteps = conversations.reduce((sum, c) => sum + c.steps, 0)
@@ -273,6 +274,37 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
     cells.push({ date: k, count, level })
   }
 
+  const weekCounts = Array(53).fill(0);
+  cells.forEach((cell, idx) => { weekCounts[Math.floor(idx / 7)] += cell.count; });
+  const maxWeekCount = Math.max(1, ...weekCounts);
+  const weeks = weekCounts.map((count) => ({ count, level: count === 0 ? 0 : Math.min(4, Math.ceil((count / maxWeekCount) * 4)) }));
+
+  const monthCounts = Array(12).fill(0);
+  conversations.forEach((c) => { monthCounts[new Date(c.time).getMonth()] += 1; });
+  const maxMonthCount = Math.max(1, ...monthCounts);
+  const months = monthCounts.map((count, idx) => ({ label: new Date(2024, idx, 1).toLocaleString('en', { month: 'short' }), count, level: count === 0 ? 0 : Math.min(4, Math.ceil((count / maxMonthCount) * 4)) }));
+
+  let cumulativeRunning = 0;
+  const cumulativeWeeks = weeks.map((w) => { cumulativeRunning += w.count; return { count: cumulativeRunning, level: 0 }; });
+  const cumulativeTotal = cumulativeWeeks.length ? cumulativeWeeks[cumulativeWeeks.length - 1].count : 1;
+  cumulativeWeeks.forEach((w) => { w.level = w.count === 0 ? 0 : Math.min(4, Math.ceil((w.count / cumulativeTotal) * 4)); });
+
+  const monthLabels = Array(53).fill('');
+  let previousMonth = '';
+  for (let w = 0; w < 53; w++) {
+    const weekStart = new Date(today.getTime() - (52 - w) * 7 * 86400000);
+    const label = weekStart.toLocaleString('en', { month: 'short' });
+    if (label !== previousMonth) { monthLabels[w] = label; previousMonth = label; }
+  }
+
+  const activeCells =
+    activityFilter === 'daily' ? cells :
+    activityFilter === 'weekly' ? weeks :
+    activityFilter === 'monthly' ? months :
+    cumulativeWeeks;
+  const activeColumns = activityFilter === 'monthly' ? 12 : 53;
+  const activeAspect = activityFilter === 'daily' ? '1 / 1' : (activityFilter === 'monthly' ? '1 / 1' : '1 / 4');
+
   const skills: string[] = info?.skills ?? []
   const pluginCount = info?.pluginCount ?? 0
   const name = info?.name ?? 'User'
@@ -291,7 +323,7 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
   }
 
   return (
-    <div className='da-section'>
+    <div className='da-section' style={{ height: '100%', minHeight: '100vh', overflowY: 'auto', overflowX: 'hidden' }}>
       <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css' />
       <div className='da-header'>
         <div className='da-greeting'>{t('greeting', { name })}</div>
@@ -318,11 +350,53 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
         {conversations.length === 0 ? (
           <div className='da-empty'>{t('activity.empty')}</div>
         ) : (
-          <div className='da-heatmap'>
-            {cells.map((cell, idx) => (
-              <div key={idx} className={`da-heatmap-cell ${cell.level > 0 ? `l${cell.level}` : ''}`} title={`${cell.date}: ${cell.count}`} />
-            ))}
-          </div>
+          <>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+              {['daily', 'weekly', 'monthly', 'cumulative'].map((filter) => (
+                <button
+                  key={filter}
+                  type='button'
+                  onClick={() => setActivityFilter(filter as any)}
+                  style={{
+                    padding: '4px 10px',
+                    fontSize: 12,
+                    borderRadius: 6,
+                    border: '1px solid var(--border, rgba(255,255,255,.15))',
+                    background: activityFilter === filter ? 'rgba(110,168,254,.25)' : 'transparent',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+            <div className='da-heatmap' style={{ gridTemplateColumns: `repeat(${activeColumns}, 1fr)` }}>
+              {activeCells.map((cell: any, idx: number) => (
+                <div
+                  key={idx}
+                  className={`da-heatmap-cell ${cell.level > 0 ? `l${cell.level}` : ''}`}
+                  style={{ aspectRatio: activeAspect }}
+                  title={`${cell.label ?? cell.date ?? idx}: ${cell.count}`}
+                />
+              ))}
+            </div>
+            {activityFilter !== 'monthly' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(53, 1fr)', gap: 3, marginTop: 4, fontSize: 10, opacity: 0.65 }}>
+                {monthLabels.map((label: string, idx: number) => (
+                  <div key={idx} style={{ textAlign: 'center', whiteSpace: 'nowrap', overflow: 'visible' }}>{label}</div>
+                ))}
+              </div>
+            )}
+            {activityFilter === 'monthly' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 3, marginTop: 4, fontSize: 10, opacity: 0.65 }}>
+                {months.map((m: any, idx: number) => (
+                  <div key={idx} style={{ textAlign: 'center' }}>{m.label}</div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -411,3 +485,4 @@ export function AnalyticsSection({ t, sessions }: AnalyticsSectionProps) {
     </div>
   )
 }
+
